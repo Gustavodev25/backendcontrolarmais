@@ -1,8 +1,8 @@
 import { Header, attachHeaderListeners } from '../components/Header';
 import { CategoryService } from '../services/categoryService';
 import { BrilhoHeader } from '../components/BrilhoHeader';
-import { auth } from '../lib/firebase';
-import { setDoc, deleteDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
+import { setDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import {
   DynamicIsland,
 } from '../components/DynamicIsland';

@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(grep -n \"function CreditCardsContent\\\\|return \\\\`\" \"C:\\\\Users\\\\de\\\\Desktop\\\\controlarmais2.0/src/pages/CreditCards.ts\")",
+      "Bash(grep -r \"collection.*reminders\\\\|collection.*subscriptions\\\\|collection.*recurrences\" C:UsersdeDesktopcontrolarmais2.0src --include=*.ts --include=*.tsx)",
+      "Bash(grep -r \"frequency\\\\|recurrence\" C:UsersdeDesktopcontrolarmais2.0src --include=*.ts --include=*.tsx)",
+      "Bash(grep -r \"mobile\\\\|app\\\\|native\\\\|react-native\" C:UsersdeDesktopcontrolarmais2.0src --include=*.ts --include=*.tsx)",
+      "Bash(grep -r \"collection\\\\|getDocs\\\\|addDoc\\\\|setDoc\\\\|deleteDoc\\\\|updateDoc\" C:UsersdeDesktopcontrolarmais2.0src --include=*.ts --include=*.tsx)",
+      "Bash(grep -ri recentes /c/Users/de/Desktop/controlarmais2.0 --exclude-dir=node_modules --include=*.ts --include=*.tsx --include=*.js --include=*.jsx)",
+      "Bash(grep -r skeleton C:UsersdeDesktopcontrolarmais2.0src --include=*.ts --include=*.tsx -l)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"dots\\\\|paginat\\\\|carousel\" /c/Users/de/Desktop/controlarmais2.0 --include=*.js --include=*.jsx --include=*.ts --include=*.tsx --exclude-dir=node_modules)",
+      "Bash(npm run:*)",
+      "Bash(grep -r closing-modal /c/Users/de/Desktop/controlarmais2.0/src --include=*.css --include=*.scss --include=*.html --include=*.ts -A 5)",
+      "Bash(find C:/Users/de/Desktop/controlarmais2.0/src -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.css \\\\\\))",
+      "Bash(grep -r \"elastic.out\\\\|blob\\\\|liquid\" C:/Users/de/Desktop/controlarmais2.0/src --include=*.ts --include=*.tsx)",
+      "Bash(find C:UsersdeDesktopcontrolarmais2.0 -name *.css -type f)",
+      "Bash(find /c/Users/de/Desktop/controlarmais2.0 -type f \\\\\\(-name *.ts -o -name *.js \\\\\\) -path */api/* -o -path */server/* -o -path */functions/*)",
+      "Bash(find /c/Users/de/Desktop/controlarmais2.0 -name *Settings* -type f)",
+      "Bash(grep -r \"renderReminders\\\\|route.*reminder\" /c/Users/de/Desktop/controlarmais2.0/src --include=*.ts --include=*.tsx)",
+      "Bash(grep -n \"overview-card-header.*border-b\" src/pages/Dashboard.ts src/components/*.ts)",
+      "Bash(find C:UsersdeDesktopcontrolarmais2.0 -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.vue \\\\\\))",
+      "Bash(find C:UsersdeDesktopcontrolarmais2.0src -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.vue \\\\\\))",
+      "Bash(grep -r \"savings\\\\|caixinhas\\\\|patrimony\\\\|bem.material\" C:UsersdeDesktopcontrolarmais2.0src --include=*.ts -n)",
+      "Bash(find C:UsersdeDesktopcontrolarmais2.0src -type f -name *.vue -o -name *.svelte -o -name *.astro)",
+      "Bash(grep -l \"card\\\\|container\" \"C:\\\\Users\\\\de\\\\Desktop\\\\controlarmais2.0\\\\src\\\\pages\"/*.ts)",
+      "Bash(grep -n \"renderDashboard\\\\|function.*Dashboard\\\\|export function\\\\|return \\\\`\" \"C:\\\\Users\\\\de\\\\Desktop\\\\controlarmais2.0\\\\src\\\\pages\\\\Dashboard.ts\")",
+      "Bash(find C:UsersdeDesktopcontrolarmais2.0src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(npm install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(grep -v \"//.*localhost\")",
+      "Bash(git push:*)",
+      "Bash(git -C C:/Users/de/Desktop/controlarmais2.0 log --oneline --all)",
+      "Bash(git -C C:/Users/de/Desktop/controlarmais2.0 show 53e5a78 --stat)"
+    ]
+  }
+}

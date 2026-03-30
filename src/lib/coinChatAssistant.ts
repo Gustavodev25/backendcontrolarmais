@@ -445,12 +445,12 @@ export function createCoinChatAssistant(config: CoinChatAssistantConfig): CoinCh
     ]);
 
     const subscriptions = subscriptionsSnap.docs
-      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
+      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as any))
       .filter((subscription) => subscription.deleted !== true) as SubscriptionRecord[];
 
     const billingsBySubId = new Map<string, any[]>();
     billingsSnap.docs.forEach((snapshotDoc) => {
-      const billing = { id: snapshotDoc.id, ...snapshotDoc.data() };
+      const billing = { id: snapshotDoc.id, ...snapshotDoc.data() } as any;
       const entries = billingsBySubId.get(String(billing.subscriptionId)) || [];
       entries.push(billing);
       billingsBySubId.set(String(billing.subscriptionId), entries);
@@ -469,12 +469,12 @@ export function createCoinChatAssistant(config: CoinChatAssistantConfig): CoinCh
     ]);
 
     const reminders = remindersSnap.docs
-      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
+      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as any))
       .filter((reminder) => reminder.deleted !== true) as ReminderRecord[];
 
     const billingsByReminderId = new Map<string, any[]>();
     billingsSnap.docs.forEach((snapshotDoc) => {
-      const billing = { id: snapshotDoc.id, ...snapshotDoc.data() };
+      const billing = { id: snapshotDoc.id, ...snapshotDoc.data() } as any;
       const entries = billingsByReminderId.get(String(billing.reminderId)) || [];
       entries.push(billing);
       billingsByReminderId.set(String(billing.reminderId), entries);
@@ -486,21 +486,21 @@ export function createCoinChatAssistant(config: CoinChatAssistantConfig): CoinCh
   const loadSavings = async (): Promise<SavingsRecord[]> => {
     const savingsSnap = await getDocs(collection(db, `users/${config.userId}/savings`));
     return savingsSnap.docs
-      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
+      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as any))
       .filter((item) => item.deleted !== true && item.type === 'custom') as SavingsRecord[];
   };
 
   const loadAssets = async (): Promise<AssetRecord[]> => {
     const assetsSnap = await getDocs(collection(db, `users/${config.userId}/assets`));
     return assetsSnap.docs
-      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
+      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as any))
       .filter((item) => item.deleted !== true) as AssetRecord[];
   };
 
   const loadCheckingAccounts = async (): Promise<any[]> => {
     const snap = await getDocs(collection(db, `users/${config.userId}/accounts`));
     return snap.docs
-      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
+      .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() } as any))
       .filter((acc) => acc.type === 'CHECKING' || acc.type === 'SAVINGS');
   };
 
@@ -1333,7 +1333,7 @@ export function createCoinChatAssistant(config: CoinChatAssistantConfig): CoinCh
 
   const executeRefund = async (transaction: CreditTransactionRecord, refundAmount: number): Promise<void> => {
     const refundId = `${transaction.id}_refund_${Date.now()}`;
-    const refundTransaction = {
+    const refundTransaction: any = {
       ...transaction,
       id: refundId,
       amount: -refundAmount,
