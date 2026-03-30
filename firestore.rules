@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isUserAdmin() {
+      let userDoc = request.auth != null
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid))
+        : null;
+      return (
+        request.auth != null && (
+          request.auth.token.admin == true ||
+          request.auth.token.isAdmin == true
+        ) ||
+        userDoc != null && (
+          userDoc.data.profile.isAdmin == true ||
+          userDoc.data.isAdmin == true
+        )
+      );
+    }
+    match /users/{userId} {
+      // Access: own user document or admin (using isUserAdmin helper to support DB-based roles)
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isUserAdmin());
+    }
+    match /users/{userId}/{document=**} {
+      // Access: own user document or admin (using isUserAdmin helper)
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isUserAdmin());
+    }
+    match /families/{familyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.members.hasAny([request.auth.uid]) ||
+        isUserAdmin() ||
+        (
+          !resource.data.members.hasAny([request.auth.uid]) &&
+          request.resource.data.members.hasAny([request.auth.uid]) &&
+          request.resource.data.members.size() == resource.data.members.size() + 1
+        )
+      );
+    }
+    match /families/{familyId}/goals/{goalId} {
+      function isFamilyMember() {
+        let family = get(/databases/$(database)/documents/families/$(familyId));
+        return family != null && (
+          family.data.ownerId == request.auth.uid ||
+          family.data.members.hasAny([request.auth.uid])
+        );
+      }
+      allow read, write: if request.auth != null && (isFamilyMember() || isUserAdmin());
+    }
+    match /waitlist/{document} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null && isUserAdmin();
+    }
+    // --- REGRAS DE CUPONS ---
+    // Leitura: Permitida para todos os usuários autenticados (para validar na hora do checkout)
+    // Escrita/Criação: Apenas Admins podem criar ou alterar propriedades do cupom
+    // Atualização de Uso (currentUses): Permitimos que QUALQUER usuário autenticado incremente o contador
+    // desde que seja a única mudança feita no documento (segurança via regras).
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow create, delete: if request.auth != null && isUserAdmin();
+      allow update: if request.auth != null && (
+        isUserAdmin() || 
+        (
+          // Permite usuários comuns atualizarem APENAS o campo 'currentUses'
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentUses']) &&
+          request.resource.data.currentUses == resource.data.currentUses + 1
+        )
+      );
+    }
+    // --- NOVA REGRA PARA O CONTADOR ---
+    match /system_stats/{statId} {
+      allow read, write: if request.auth != null;
+    }
+    // --- REGRAS PARA CONFIGURAÇÕES DO SISTEMA (PIXELS, ETC) ---
+    match /system/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && isUserAdmin();
+    }
+    
+    // --- REGRAS PARA FEEDBACKS (ROADMAP) ---
+    match /feedbacks/{feedbackId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && isUserAdmin();
+    }
+
+    // --- REGRAS PARA CHANGELOG ---
+    match /changelogs/{changeLogId} {
+      allow read: if true;
+      allow write: if isUserAdmin();
+    }
+
+    // --- REGRAS PARA CHAMADOS DE SUPORTE ---
+    match /support_tickets/{ticketId} {
+      allow create: if request.auth != null; // Changed to simple auth check, validated by logic
+      allow read, update: if request.auth != null && (resource.data.userId == request.auth.uid || isUserAdmin());
+      allow delete: if request.auth != null && isUserAdmin();
+
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null && (
+           get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid ||
+           isUserAdmin()
+        );
+      }
+    }
+
+    // --- ADMIN MESSAGE LOGS ---
+    match /admin_message_logs/{logId} {
+      allow read, write: if request.auth != null && isUserAdmin();
+    }
+
+    // --- ADMIN KANBAN & GENERAL ADMIN DATA ---
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && isUserAdmin();
+    }
+
+    // --- REMINDERS (APP MOBILE - ROOT COLLECTION) ---
+    // O app mobile salva reminders na coleção raiz em vez de users/{userId}/reminders
+    match /reminders/{reminderId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.ownerId == request.auth.uid ||
+        isUserAdmin()
+      );
+      allow list: if request.auth != null;
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid || 
+        request.resource.data.ownerId == request.auth.uid
+      );
+      allow update, delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.ownerId == request.auth.uid
+      );
+    }
+
+    // --- SUBSCRIPTIONS (APP MOBILE - ROOT COLLECTION) ---
+    match /subscriptions/{subscriptionId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.ownerId == request.auth.uid ||
+        isUserAdmin()
+      );
+      allow list: if request.auth != null;
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid || 
+        request.resource.data.ownerId == request.auth.uid
+      );
+      allow update, delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.ownerId == request.auth.uid
+      );
+    }
+
+    // --- REGRAS PARA CONTAS E TRANSAÇÕES BANCÁRIAS (RAIZ) ---
+    match /accounts/{accountId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isUserAdmin());
+    }
+    match /transactions/{txId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isUserAdmin());
+    }
+    match /creditCardTransactions/{txId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isUserAdmin());
+    }
+    match /creditCardBills/{billId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isUserAdmin());
+    }
+    match /userConfigs/{userId} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isUserAdmin());
+    }
+
+    // --- COLLECTION GROUP QUERIES ---
+    match /{path=**}/items/{itemId} {
+      allow read: if request.auth != null && isUserAdmin();
+    }
+    match /{path=**}/connected_accounts/{accountId} {
+      allow read: if request.auth != null && isUserAdmin();
+    }
+    match /{path=**}/accounts/{accountId} {
+      allow read: if request.auth != null && isUserAdmin();
+    }
+    match /categories/{categoryId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isUserAdmin());
+    }
+    match /{path=**}/pluggyItems/{itemId} {
+      allow read: if request.auth != null && isUserAdmin();
+    }
+  }
+}
