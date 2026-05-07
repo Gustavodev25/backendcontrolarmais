@@ -25,6 +25,7 @@ import { renderAdminAutomation } from './pages/AdminAutomation'
 import { renderAdminAutomationChat } from './pages/AdminAutomationChat'
 import { handlePendingSyncCreditsCheckoutReturn } from './components/SyncCreditsCheckout'
 import { renderLanding, cleanupLanding } from './pages/Landing'
+import { getPublicLegalPageFromPath, renderLegalPage } from './pages/Legal'
 import { openTwoFactorPromoModal } from './components/TwoFactorPromoModal'
 import { renderUpdates } from './pages/Updates'
 
@@ -50,6 +51,7 @@ if (API_BASE.includes('ngrok')) {
 
 let currentUser: any = null;
 let isInitialized = false;
+const publicLegalPage = getPublicLegalPageFromPath();
 
 function getApiBaseUrl() {
   return API_BASE;
@@ -107,8 +109,13 @@ function renderAuth() {
   authManager.render();
 }
 
-// Splash inicial / Loading de Auth
-renderLoading();
+// Rotas públicas legais usadas pela App Store não entram no fluxo de autenticação.
+if (publicLegalPage) {
+  renderLegalPage(publicLegalPage);
+} else {
+  // Splash inicial / Loading de Auth
+  renderLoading();
+}
 
 // Listener para quando signup for completado
 window.addEventListener('auth-complete', (e: any) => {
@@ -118,6 +125,11 @@ window.addEventListener('auth-complete', (e: any) => {
 
 // Monitor global
 onAuthStateChanged(auth, async (user) => {
+  if (publicLegalPage) {
+    isInitialized = true;
+    return;
+  }
+
   if (user) {
     cleanupLanding();
     currentUser = user;

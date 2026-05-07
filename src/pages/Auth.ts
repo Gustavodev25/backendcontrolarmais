@@ -116,7 +116,7 @@ class AuthManager {
         </div>
         <div class="flex justify-between items-center mt-6 gap-4">
           <div class="max-w-[200px]">
-            ${Checkbox({ id: 'terms', label: 'Ao clicar em cadastrar, você concorda com nossos <a href="#" class="text-white/60 underline hover:text-[#D97757]">termos de uso</a>.', required: true })}
+            ${Checkbox({ id: 'terms', label: 'Ao clicar em cadastrar, você concorda com nossos <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer" class="text-white/60 underline hover:text-[#D97757]">termos de uso</a>.', required: true })}
           </div>
           <a href="#" id="toggle-auth" class="text-white/60 text-xs font-normal hover:text-[#D97757] transition-colors text-right shrink-0">Já tenho conta</a>
         </div>
