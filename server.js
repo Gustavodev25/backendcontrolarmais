@@ -1258,8 +1258,12 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
 
         const userEmail = userData?.email || userData?.profile?.email
             || authResult.user?.email || null;
+        const userCpfCnpj = String(
+            userData?.profile?.cpf || userData?.cpf
+            || userData?.profile?.cpfCnpj || userData?.cpfCnpj || ''
+        ).replace(/\D/g, '') || null;
 
-        console.log(`[AsaasSync] uid=${uid} | subscriptionId=${subscriptionId} | customerId=${customerId} | email=${userEmail} | subscription:`, JSON.stringify(userData?.subscription || {}));
+        console.log(`[AsaasSync] uid=${uid} | subscriptionId=${subscriptionId} | customerId=${customerId} | email=${userEmail} | cpfCnpj=${userCpfCnpj} | subscription:`, JSON.stringify(userData?.subscription || {}));
 
         let asaasSubscription = null;
         let foundAsaasCustomer = null; // qualquer customer Asaas que case com este usuario
@@ -1295,16 +1299,20 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
             }
         }
 
-        // 3. Fallback: busca cliente pelo email e procura assinatura ATIVA em TODOS os customers
-        if (!asaasSubscription && userEmail) {
+        // Helper: busca customers Asaas por um filtro (email ou cpfCnpj) e seleciona
+        // a melhor sub priorizando ACTIVE > OVERDUE > qualquer outra status.
+        const lookupByCustomerFilter = async (filterParams, label) => {
             try {
                 const custRes = await axios.get(`${ASAAS_URL}/customers`, {
                     headers: asaasHeaders,
-                    params: { email: userEmail, limit: 5 }
+                    params: { ...filterParams, limit: 5 }
                 });
                 const customers = custRes.data?.data || [];
+                if (customers.length === 0) {
+                    console.log(`[AsaasSync] Nenhum customer encontrado por ${label}.`);
+                    return null;
+                }
 
-                // Coleta todas as subs de todos os customers que casam com o e-mail
                 const allMatches = [];
                 for (const cust of customers) {
                     if (!foundAsaasCustomer) foundAsaasCustomer = cust;
@@ -1322,16 +1330,12 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
                     }
                 }
 
-                // Prioriza ACTIVE > OVERDUE > qualquer outra
                 const priorityOf = (s) => s === 'ACTIVE' ? 3 : s === 'OVERDUE' ? 2 : 1;
                 allMatches.sort((a, b) => priorityOf(b.sub.status) - priorityOf(a.sub.status));
                 const best = allMatches[0];
 
                 if (best) {
-                    asaasSubscription = best.sub;
-                    customerId = best.customer.id;
-                    foundAsaasCustomer = best.customer;
-                    console.log(`[AsaasSync] Sub por email: customerId=${best.customer.id} status=${best.sub.status}`);
+                    console.log(`[AsaasSync] Sub por ${label}: customerId=${best.customer.id} status=${best.sub.status}`);
 
                     // Auto-recuperacao: corrige externalReference se estiver errado/legado
                     const currentExternalRef = best.customer.externalReference || '';
@@ -1347,9 +1351,32 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
                             console.warn(`[AsaasSync] Falha ao corrigir externalReference do customer ${best.customer.id}:`, refErr.message);
                         }
                     }
+                    return best;
                 }
+                return null;
             } catch (err) {
-                console.warn(`[AsaasSync] Erro ao buscar por email ${userEmail}.`);
+                console.warn(`[AsaasSync] Erro ao buscar por ${label}: ${err.message}`);
+                return null;
+            }
+        };
+
+        // 3. Fallback: busca cliente pelo email
+        if (!asaasSubscription && userEmail) {
+            const best = await lookupByCustomerFilter({ email: userEmail }, `email=${userEmail}`);
+            if (best) {
+                asaasSubscription = best.sub;
+                customerId = best.customer.id;
+                foundAsaasCustomer = best.customer;
+            }
+        }
+
+        // 4. Fallback: busca cliente pelo CPF/CNPJ
+        if (!asaasSubscription && userCpfCnpj) {
+            const best = await lookupByCustomerFilter({ cpfCnpj: userCpfCnpj }, `cpfCnpj=${userCpfCnpj}`);
+            if (best) {
+                asaasSubscription = best.sub;
+                customerId = best.customer.id;
+                foundAsaasCustomer = best.customer;
             }
         }
 
