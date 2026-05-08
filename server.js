@@ -1304,6 +1304,22 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
                         asaasSubscription = found;
                         customerId = cust.id; // salva para gravar no Firestore
                         console.log(`[AsaasSync] Cliente encontrado por email: customerId=${cust.id}`);
+
+                        // Auto-recuperacao: corrige externalReference se estiver errado/legado.
+                        // Sem isso, webhooks futuros nao acham o usuario (bug do "temp_xxx").
+                        const currentExternalRef = cust.externalReference || '';
+                        if (currentExternalRef !== uid) {
+                            try {
+                                await axios.put(
+                                    `${ASAAS_URL}/customers/${cust.id}`,
+                                    { externalReference: uid },
+                                    { headers: asaasHeaders }
+                                );
+                                console.log(`[AsaasSync] externalReference corrigido: "${currentExternalRef}" -> "${uid}"`);
+                            } catch (refErr) {
+                                console.warn(`[AsaasSync] Falha ao corrigir externalReference do customer ${cust.id}:`, refErr.message);
+                            }
+                        }
                         break;
                     }
                 }
@@ -1314,16 +1330,17 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
 
         if (!asaasSubscription) {
             console.log(`[AsaasSync] uid=${uid} — nenhuma assinatura encontrada no Asaas.`);
-            // Nenhuma assinatura encontrada — marca como inativo
-            await updateUserPlan(uid, 'free', 'inactive', {
-                'subscription.provider': 'asaas',
-            });
+            // Nao sobrescreve um plano 'pro' ja existente — pode ser falha temporaria
+            // do Asaas, IDs nao salvos, ou e-mail divergente. Preserva o estado atual
+            // e deixa o frontend decidir pelo plano salvo no Firestore.
+            const currentPlan = String(userData?.subscription?.plan || userData?.plan || 'free').toLowerCase();
+            const currentStatus = String(userData?.subscription?.status || 'inactive').toLowerCase();
             return res.status(200).json({
                 success: true,
                 synced: false,
-                status: 'inactive',
-                plan: 'free',
-                message: 'Nenhuma assinatura ativa encontrada no Asaas.',
+                status: currentStatus,
+                plan: currentPlan,
+                message: 'Nenhuma assinatura encontrada no Asaas; plano atual preservado.',
             });
         }
 
@@ -1628,19 +1645,55 @@ app.get('/api/admin/users/:uid/verify-payment', async (req, res) => {
         const data = targetDoc.data();
         const sub = data.subscription || {};
         let verified = false;
+        let paying = false;
+        let providerStatus = null;
+        let providerMonthlyAmount = 0;
+        let providerBillingCycle = null;
 
-        if ((sub.provider === 'stripe' || sub.stripeCustomerId) && stripe) {
+        if ((sub.provider === 'stripe' || sub.stripeCustomerId) && stripe && sub.stripeCustomerId) {
             const stripeSubs = await stripe.subscriptions.list({ customer: sub.stripeCustomerId });
-            verified = stripeSubs.data.some(s => ['active', 'trialing'].includes(s.status));
-        } else if ((sub.provider === 'asaas' || sub.asaasCustomerId) && process.env.ASAAS_API_KEY) {
+            const liveSub = stripeSubs.data.find(s => ['active', 'trialing'].includes(s.status));
+            verified = Boolean(liveSub);
+            const activeSub = stripeSubs.data.find(s => s.status === 'active');
+            paying = Boolean(activeSub);
+            const ref = activeSub || liveSub;
+            if (ref) {
+                providerStatus = ref.status;
+                const item = ref.items?.data?.[0];
+                const price = item?.price;
+                const unitAmount = (price?.unit_amount ?? 0) / 100;
+                const interval = price?.recurring?.interval || null;
+                providerBillingCycle = interval;
+                if (unitAmount > 0) {
+                    providerMonthlyAmount = interval === 'year' ? unitAmount / 12 : unitAmount;
+                }
+            }
+        } else if ((sub.provider === 'asaas' || sub.asaasCustomerId) && process.env.ASAAS_API_KEY && sub.asaasCustomerId) {
             const asaasUrl = process.env.ASAAS_MODE === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3';
             const response = await axios.get(`${asaasUrl}/subscriptions?customer=${sub.asaasCustomerId}`, {
                 headers: { 'access_token': process.env.ASAAS_API_KEY }
             });
-            verified = response.data.data.some(s => s.status === 'ACTIVE');
+            const activeSub = response.data.data.find(s => s.status === 'ACTIVE');
+            verified = Boolean(activeSub);
+            paying = Boolean(activeSub);
+            if (activeSub) {
+                providerStatus = activeSub.status;
+                const rawValue = parseMoneyValue(activeSub.value);
+                const cycle = String(activeSub.cycle || '').toUpperCase();
+                providerBillingCycle = cycle;
+                if (rawValue > 0) {
+                    providerMonthlyAmount = cycle === 'YEARLY' ? rawValue / 12 : rawValue;
+                }
+            }
         }
 
-        return res.status(200).json({ verified });
+        return res.status(200).json({
+            verified,
+            paying,
+            status: providerStatus,
+            monthlyAmount: providerMonthlyAmount,
+            billingCycle: providerBillingCycle
+        });
     } catch (error) {
         return res.status(500).json({ error: error.message || 'Erro ao verificar pagamento.' });
     }

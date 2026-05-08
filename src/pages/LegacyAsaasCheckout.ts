@@ -772,13 +772,13 @@ function attachCheckoutListeners(userData: any) {
       console.log("[Checkout] Salvando baseDoc no Firestore:", baseDoc);
       await setDoc(doc(db, "users", userCredential.user.uid), baseDoc);
 
-      // 4. ATUALIZAR UID NO ASAAS
+      // 4. ATUALIZAR UID NO ASAAS — vincula externalReference ao UID real do Firebase
+      // (sem isso, webhooks de renovacao/cancelamento nao acham o usuario)
       try {
-        await fetch(`${API_BASE}/api/asaas/update-customer-id`, {
-          method: 'POST',
+        await fetch(`${API_BASE}/api/asaas/update-customer/${customer.id}`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            customerId: customer.id,
             uid: userCredential.user.uid
           })
         });

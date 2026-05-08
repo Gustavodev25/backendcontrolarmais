@@ -15,7 +15,6 @@ import { GenericDropdown, attachGenericDropdownListeners } from '../components/G
 const verifiedIconStripe = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#6faf6e" class="shrink-0" title="Stripe: Assinatura Verificada e Ativa"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12.01 2.011a3.2 3.2 0 0 1 2.113 .797l.154 .145l.698 .698a1.2 1.2 0 0 0 .71 .341l.135 .008h1a3.2 3.2 0 0 1 3.195 3.018l.005 .182v1c0 .27 .092 .533 .258 .743l.09 .1l.697 .698a3.2 3.2 0 0 1 .147 4.382l-.145 .154l-.698 .698a1.2 1.2 0 0 0 -.341 .71l-.008 .135v1a3.2 3.2 0 0 1 -3.018 3.195l-.182 .005h-1a1.2 1.2 0 0 0 -.743 .258l-.1 .09l-.698 .697a3.2 3.2 0 0 1 -4.382 .147l-.154 -.145l-.698 -.698a1.2 1.2 0 0 0 -.71 -.341l-.135 -.008h-1a3.2 3.2 0 0 1 -3.195 -3.018l-.005 -.182v-1a1.2 1.2 0 0 0 -.258 -.743l-.09 -.1l-.697 -.698a3.2 3.2 0 0 1 -.147 -4.382l.145 -.154l.698 -.698a1.2 1.2 0 0 0 .341 -.71l.008 -.135v-1l.005 -.182a3.2 3.2 0 0 1 3.013 -3.013l.182 -.005h1a1.2 1.2 0 0 0 .743 -.258l.1 -.09l.698 -.697a3.2 3.2 0 0 1 2.269 -.944zm3.697 7.282a1 1 0 0 0 -1.414 0l-3.293 3.292l-1.293 -1.292l-.094 -.083a1 1 0 0 0 -1.32 1.497l2 2l.094 .083a1 1 0 0 0 1.32 -.083l4 -4l.083 -.094a1 1 0 0 0 -.083 -1.32z" /></svg>`;
 const verifiedIconAsaas = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#2869d2" class="shrink-0" title="Asaas: Assinatura Verificada e Ativa"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12.01 2.011a3.2 3.2 0 0 1 2.113 .797l.154 .145l.698 .698a1.2 1.2 0 0 0 .71 .341l.135 .008h1a3.2 3.2 0 0 1 3.195 3.018l.005 .182v1c0 .27 .092 .533 .258 .743l.09 .1l.697 .698a3.2 3.2 0 0 1 .147 4.382l-.145 .154l-.698 .698a1.2 1.2 0 0 0 -.341 .71l-.008 .135v1a3.2 3.2 0 0 1 -3.018 3.195l-.182 .005h-1a1.2 1.2 0 0 0 -.743 .258l-.1 .09l-.698 .697a3.2 3.2 0 0 1 -4.382 .147l-.154 -.145l-.698 -.698a1.2 1.2 0 0 0 -.71 -.341l-.135 -.008h-1a3.2 3.2 0 0 1 -3.195 -3.018l-.005 -.182v-1a1.2 1.2 0 0 0 -.258 -.743l-.09 -.1l-.697 -.698a3.2 3.2 0 0 1 -.147 -4.382l.145 -.154l.698 -.698a1.2 1.2 0 0 0 .341 -.71l.008 -.135v-1l.005 -.182a3.2 3.2 0 0 1 3.013 -3.013l.182 -.005h1a1.2 1.2 0 0 0 .743 -.258l.1 -.09l.698 -.697a3.2 3.2 0 0 1 2.269 -.944zm3.697 7.282a1 1 0 0 0 -1.414 0l-3.293 3.292l-1.293 -1.292l-.094 -.083a1 1 0 0 0 -1.32 1.497l2 2l.094 .083a1 1 0 0 0 1.32 -.083l4 -4l.083 -.094a1 1 0 0 0 -.083 -1.32z" /></svg>`;
 const loaderIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" title="Verificando assinatura..."><style>@keyframes spinner_qM83{0%{stroke-dasharray:0 150;stroke-dashoffset:0}47.5%{stroke-dasharray:42 150;stroke-dashoffset:-16}95%,100%{stroke-dasharray:42 150;stroke-dashoffset:-59}}@keyframes spinner_8Q3b{100%{transform:rotate(360deg)}}.spi{transform-origin:center;animation:spinner_8Q3b 2s linear infinite}.spi circle{stroke-linecap:round;animation:spinner_qM83 1.5s ease-in-out infinite}</style><g class="spi"><circle cx="12" cy="12" r="9.5" fill="none" /></g></svg>`;
-const DEFAULT_PRO_MONTHLY_AMOUNT = 35.90;
 const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 // ====================== HELPERS ======================
@@ -52,12 +51,19 @@ function isAnnualBillingCycle(value: any): boolean {
 }
 
 function isActiveClient(userItem: any): boolean {
-  const status = normalizeValue(userItem.status);
-  const plan = normalizeValue(userItem.plan);
-  return userItem.isVerified === true || (plan === 'pro' && (status === 'active' || status === 'trialing'));
+  return userItem.isVerified === true;
+}
+
+function isPayingClient(userItem: any): boolean {
+  return userItem.isVerified === true;
 }
 
 function getMonthlyRevenue(userItem: any): number {
+  if (!isPayingClient(userItem)) return 0;
+
+  const verifiedAmount = parseMoneyValue(userItem.verifiedMonthlyAmount);
+  if (verifiedAmount > 0) return verifiedAmount;
+
   const monthlyAmount = parseMoneyValue(userItem.subscriptionMonthlyAmount);
   if (monthlyAmount > 0) return monthlyAmount;
 
@@ -69,12 +75,12 @@ function getMonthlyRevenue(userItem: any): number {
     return isAnnualBillingCycle(userItem.billingCycle) ? rawAmount / 12 : rawAmount;
   }
 
-  return isActiveClient(userItem) ? DEFAULT_PRO_MONTHLY_AMOUNT : 0;
+  return 0;
 }
 
 function getActiveClientSummary(users: any[]): { count: number; revenue: number } {
   return users.reduce((acc, userItem) => {
-    if (!isActiveClient(userItem)) return acc;
+    if (!isPayingClient(userItem)) return acc;
 
     acc.count += 1;
     acc.revenue += getMonthlyRevenue(userItem);
@@ -309,7 +315,7 @@ let filteredUsersGlobal: any[] = [];
 
 const filters1: FilterOption[] = [
   { id: 'all_status',   label: 'Todos Status' },
-  { id: 'active_subs',  label: 'Assinaturas Ativas' },
+  { id: 'active_subs',  label: 'Pagantes' },
   { id: 'pro',          label: 'Usuários PRO' },
 ];
 
@@ -339,8 +345,8 @@ function applyFilterAndRender() {
 
   filteredUsersGlobal = allUsersGlobal.filter((u: any) => {
     // Filtro do Grupo 1 (Status/Plano)
-    const match1 = activeFilter1 === 'all_status' || 
-                   (activeFilter1 === 'active_subs' && isActiveClient(u)) ||
+    const match1 = activeFilter1 === 'all_status' ||
+                   (activeFilter1 === 'active_subs' && isPayingClient(u)) ||
                    (activeFilter1 === 'pro' && u.plan === 'pro');
     
     // Filtro do Grupo 2 (Provedor)
@@ -524,11 +530,11 @@ async function loadSubscriptions(): Promise<void> {
           </div>
           <div class="cc-table-header-right">
             <div class="cc-table-kpis" aria-label="Resumo de clientes ativos">
-              <div class="cc-table-kpi">
-                <span class="cc-table-kpi-label">Clientes ativos</span>
+              <div class="cc-table-kpi" title="Apenas usuários com assinatura ativa verificada no Stripe ou Asaas (exclui trial e legados não pagantes).">
+                <span class="cc-table-kpi-label">Pagantes</span>
                 <strong class="cc-table-kpi-value cc-active-client-count">0 clientes</strong>
               </div>
-              <div class="cc-table-kpi">
+              <div class="cc-table-kpi" title="Soma do valor mensal real cobrado no provedor para os clientes pagantes.">
                 <span class="cc-table-kpi-label">Receita/mês</span>
                 <strong class="cc-table-kpi-value cc-active-revenue">${moneyFormatter.format(0)}</strong>
               </div>
@@ -603,6 +609,11 @@ async function loadSubscriptions(): Promise<void> {
       .then(data => {
         if (data.verified) {
           u.isVerified = true;
+          u.isPaying = data.paying === true;
+          if (data.status) u.providerStatus = data.status;
+          if (typeof data.monthlyAmount === 'number' && data.monthlyAmount > 0) {
+            u.verifiedMonthlyAmount = data.monthlyAmount;
+          }
           const finalIcon = u.provider === 'asaas' ? verifiedIconAsaas : verifiedIconStripe;
           document.querySelectorAll(`.user-verify-badge-${u.uid}`).forEach(el => {
             (el as HTMLElement).style.display = 'inline-flex';
@@ -613,11 +624,15 @@ async function loadSubscriptions(): Promise<void> {
             try {
               const uData = JSON.parse(btn.getAttribute('data-user') || '{}');
               uData.isVerified = true;
+              uData.isPaying = u.isPaying;
+              uData.providerStatus = u.providerStatus;
+              uData.verifiedMonthlyAmount = u.verifiedMonthlyAmount;
               btn.setAttribute('data-user', JSON.stringify(uData));
             } catch(e){}
           });
         } else {
           u.isVerified = false;
+          u.isPaying = false;
           document.querySelectorAll(`.user-verify-badge-${u.uid}`).forEach(el => {
             (el as HTMLElement).style.display = 'none';
           });
@@ -631,6 +646,7 @@ async function loadSubscriptions(): Promise<void> {
       })
       .catch(() => {
         u.isVerified = false;
+        u.isPaying = false;
         document.querySelectorAll(`.user-verify-badge-${u.uid}`).forEach(el => {
            (el as HTMLElement).style.display = 'none';
         });
