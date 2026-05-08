@@ -53,8 +53,30 @@ let currentUser: any = null;
 let isInitialized = false;
 const publicLegalPage = getPublicLegalPageFromPath();
 
+const ASAAS_MIGRATION_FLAG = 'asaasMigrationRequired';
+
 function getApiBaseUrl() {
   return API_BASE;
+}
+
+function hasAsaasFootprint(userData: any): boolean {
+  if (!userData) return false;
+  const sub = userData.subscription || {};
+  return Boolean(
+    sub.provider === 'asaas' ||
+    sub.asaasSubscriptionId ||
+    sub.asaasCustomerId ||
+    userData.asaasSubscriptionId ||
+    userData.asaasCustomerId
+  );
+}
+
+export function isAsaasMigrationRequired(): boolean {
+  return sessionStorage.getItem(ASAAS_MIGRATION_FLAG) === '1';
+}
+
+export function clearAsaasMigrationFlag() {
+  sessionStorage.removeItem(ASAAS_MIGRATION_FLAG);
 }
 
 (window as any).setMeAsAdmin = async () => {
@@ -190,6 +212,7 @@ onAuthStateChanged(auth, async (user) => {
           renderLoading();
         } else if (userData.isAdmin === true || resolvedPlan === 'pro') {
           themeManager.releaseDark();
+          clearAsaasMigrationFlag();
           // Restaurar última página visitada se houver
           sessionStorage.removeItem('stripeSignupRedirectInProgress');
           sessionStorage.removeItem('stripeSignupSetupInProgress');
@@ -254,7 +277,22 @@ onAuthStateChanged(auth, async (user) => {
               setTimeout(() => openTwoFactorPromoModal(), 800);
             }
           }
+        } else if (hasAsaasFootprint(userData)) {
+          // Usuario com rastro de Asaas mas sem plan='pro' resolvido: libera o sistema
+          // forcando-o a Settings → Plano para migrar pro Stripe. Toda outra navegacao
+          // sera interceptada e redirecionada de volta para ca enquanto o flag estiver ativo.
+          themeManager.releaseDark();
+          sessionStorage.setItem(ASAAS_MIGRATION_FLAG, '1');
+          sessionStorage.setItem('currentPage', 'settings');
+          sessionStorage.setItem('currentTab', 'plan');
+          renderSettings(currentUser, 'plan');
+          toaster.create({
+            title: 'Migracao necessaria',
+            description: 'Sua assinatura no Asaas precisa ser migrada para o Stripe para continuar usando o sistema.',
+            type: 'warning',
+          });
         } else {
+          clearAsaasMigrationFlag();
           // Passa userData (Firestore) para que isLegacyAsaasManagedUser funcione corretamente
           renderCheckout({ ...userData, uid: user.uid, email: user.email });
         }
@@ -263,6 +301,7 @@ onAuthStateChanged(auth, async (user) => {
         if (redirectPending && setupPending && !hasStripeReturnParams) {
           renderLoading();
         } else {
+          clearAsaasMigrationFlag();
           renderCheckout(user);
         }
       }
@@ -299,7 +338,19 @@ onAuthStateChanged(auth, async (user) => {
 // Listener global de navegação
 window.addEventListener('app-navigate', (e: any) => {
   if (!currentUser) return;
-  const { page, tab } = e.detail;
+  let { page, tab } = e.detail;
+
+  // Trava de migracao Asaas: enquanto o flag estiver ativo, so 'settings' e permitido.
+  // Qualquer outra navegacao e desviada para Settings → Plano com aviso.
+  if (isAsaasMigrationRequired() && currentUser?.isAdmin !== true && page !== 'settings') {
+    page = 'settings';
+    tab = 'plan';
+    toaster.create({
+      title: 'Acao bloqueada',
+      description: 'Migre sua assinatura do Asaas para o Stripe para continuar usando o sistema.',
+      type: 'warning',
+    });
+  }
 
   // Persistir navegação
   if (page) sessionStorage.setItem('currentPage', page);

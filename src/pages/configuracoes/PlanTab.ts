@@ -148,6 +148,8 @@ export function PlanTab(userData: any) {
     userData?.asaasSubscriptionId ||
     userData?.asaasCustomerId
   );
+  const isAsaasMigrationLocked = typeof sessionStorage !== 'undefined'
+    && sessionStorage.getItem('asaasMigrationRequired') === '1';
   const paymentActionLabel = isStripeBilling ? 'Gerenciar' : 'Editar';
   const cancelActionLabel = isStripeBilling ? 'Abrir portal' : 'Cancelar plano';
 
@@ -400,8 +402,8 @@ export function PlanTab(userData: any) {
 
           ${isAsaasBilling ? `
           <div style="
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
+            background: ${isAsaasMigrationLocked ? 'rgba(217,119,87,0.08)' : 'var(--color-surface)'};
+            border: 1px solid ${isAsaasMigrationLocked ? '#D97757' : 'var(--color-border)'};
             border-bottom: none;
             border-radius: var(--pt-r) var(--pt-r) 0 0;
             padding: 12px 16px;
@@ -409,12 +411,12 @@ export function PlanTab(userData: any) {
             align-items: center;
             gap: 10px;
           ">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--color-text-secondary);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:${isAsaasMigrationLocked ? '#D97757' : 'var(--color-text-secondary)'};">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             <div style="flex:1;min-width:0;">
-              <p style="font-size:12px;font-weight:600;color:var(--color-text);margin-bottom:2px;">Plano gerenciado pelo Asaas</p>
-              <p style="font-size:11px;color:var(--color-text-secondary);line-height:1.45;">Sua assinatura está ativa no Asaas. Migre para o Stripe para gerenciar pagamentos diretamente.</p>
+              <p style="font-size:12px;font-weight:600;color:var(--color-text);margin-bottom:2px;">${isAsaasMigrationLocked ? 'Migração obrigatória para continuar' : 'Plano gerenciado pelo Asaas'}</p>
+              <p style="font-size:11px;color:var(--color-text-secondary);line-height:1.45;">${isAsaasMigrationLocked ? 'Sua assinatura no Asaas precisa ser migrada para o Stripe para liberar o restante do sistema. Outras páginas estão bloqueadas até a migração.' : 'Sua assinatura está ativa no Asaas. Migre para o Stripe para gerenciar pagamentos diretamente.'}</p>
             </div>
             <button id="btn-migrate-to-stripe" style="
               flex-shrink:0;white-space:nowrap;
