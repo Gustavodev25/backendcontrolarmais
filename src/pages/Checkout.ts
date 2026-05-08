@@ -213,7 +213,7 @@ export function renderCheckout(userData: any) {
   renderStripeRedirectState();
 }
 
-function tryAsaasSyncBeforeStripe(_userData: any) {
+function tryAsaasSyncBeforeStripe(userData: any) {
   renderLoading();
 
   const currentUser = auth.currentUser;
@@ -232,9 +232,27 @@ function tryAsaasSyncBeforeStripe(_userData: any) {
     .then((data: any) => {
       if (data.plan === 'pro') {
         renderDashboard(currentUser, 'overview');
-      } else {
-        renderStripeRedirectState();
+        return;
       }
+
+      // Se o sync localizou um cliente Asaas (mesmo sem assinatura ativa),
+      // o usuario deve renovar via Asaas — nao redireciona pro Stripe.
+      if (data.hasAsaasCustomer || data.asaasCustomerId) {
+        const merged = {
+          ...userData,
+          uid: currentUser.uid,
+          email: currentUser.email,
+          subscription: {
+            ...(userData?.subscription || {}),
+            provider: 'asaas',
+            asaasCustomerId: data.asaasCustomerId || userData?.subscription?.asaasCustomerId,
+          },
+        };
+        renderLegacyAsaasCheckout(merged);
+        return;
+      }
+
+      renderStripeRedirectState();
     })
     .catch(() => {
       renderStripeRedirectState();

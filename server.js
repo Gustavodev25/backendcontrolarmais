@@ -642,6 +642,8 @@ const asaasHeaders = {
     'Content-Type': 'application/json'
 };
 
+console.log(`[Asaas] Ambiente: ${process.env.ASAAS_MODE === 'production' ? 'PRODUCTION' : 'SANDBOX'} (${ASAAS_URL}) | API key ${ASAAS_API_KEY ? 'definida' : 'AUSENTE'}`);
+
 // ─────────────────────────────────────────────
 // ASAAS — Clientes
 // ─────────────────────────────────────────────
@@ -1260,12 +1262,16 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
         console.log(`[AsaasSync] uid=${uid} | subscriptionId=${subscriptionId} | customerId=${customerId} | email=${userEmail} | subscription:`, JSON.stringify(userData?.subscription || {}));
 
         let asaasSubscription = null;
+        let foundAsaasCustomer = null; // qualquer customer Asaas que case com este usuario
 
         // 1. Busca direto pelo subscriptionId
         if (subscriptionId) {
             try {
                 const subRes = await axios.get(`${ASAAS_URL}/subscriptions/${subscriptionId}`, { headers: asaasHeaders });
                 asaasSubscription = subRes.data;
+                if (asaasSubscription?.customer) {
+                    foundAsaasCustomer = { id: asaasSubscription.customer };
+                }
             } catch (err) {
                 console.warn(`[AsaasSync] subscriptionId ${subscriptionId} nao encontrado.`);
             }
@@ -1279,13 +1285,17 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
                     params: { customer: customerId, limit: 10 }
                 });
                 const items = listRes.data?.data || [];
-                asaasSubscription = items.find(s => s.status === 'ACTIVE') || items[0] || null;
+                asaasSubscription = items.find(s => s.status === 'ACTIVE')
+                    || items.find(s => s.status === 'OVERDUE')
+                    || items[0]
+                    || null;
+                foundAsaasCustomer = { id: customerId };
             } catch (err) {
                 console.warn(`[AsaasSync] Erro ao buscar por customerId ${customerId}.`);
             }
         }
 
-        // 3. Fallback: busca cliente pelo email e depois assinatura
+        // 3. Fallback: busca cliente pelo email e procura assinatura ATIVA em TODOS os customers
         if (!asaasSubscription && userEmail) {
             try {
                 const custRes = await axios.get(`${ASAAS_URL}/customers`, {
@@ -1293,34 +1303,49 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
                     params: { email: userEmail, limit: 5 }
                 });
                 const customers = custRes.data?.data || [];
-                for (const cust of customers) {
-                    const subRes = await axios.get(`${ASAAS_URL}/subscriptions`, {
-                        headers: asaasHeaders,
-                        params: { customer: cust.id, limit: 10 }
-                    });
-                    const items = subRes.data?.data || [];
-                    const found = items.find(s => s.status === 'ACTIVE') || items[0] || null;
-                    if (found) {
-                        asaasSubscription = found;
-                        customerId = cust.id; // salva para gravar no Firestore
-                        console.log(`[AsaasSync] Cliente encontrado por email: customerId=${cust.id}`);
 
-                        // Auto-recuperacao: corrige externalReference se estiver errado/legado.
-                        // Sem isso, webhooks futuros nao acham o usuario (bug do "temp_xxx").
-                        const currentExternalRef = cust.externalReference || '';
-                        if (currentExternalRef !== uid) {
-                            try {
-                                await axios.put(
-                                    `${ASAAS_URL}/customers/${cust.id}`,
-                                    { externalReference: uid },
-                                    { headers: asaasHeaders }
-                                );
-                                console.log(`[AsaasSync] externalReference corrigido: "${currentExternalRef}" -> "${uid}"`);
-                            } catch (refErr) {
-                                console.warn(`[AsaasSync] Falha ao corrigir externalReference do customer ${cust.id}:`, refErr.message);
-                            }
+                // Coleta todas as subs de todos os customers que casam com o e-mail
+                const allMatches = [];
+                for (const cust of customers) {
+                    if (!foundAsaasCustomer) foundAsaasCustomer = cust;
+                    try {
+                        const subRes = await axios.get(`${ASAAS_URL}/subscriptions`, {
+                            headers: asaasHeaders,
+                            params: { customer: cust.id, limit: 10 }
+                        });
+                        const items = subRes.data?.data || [];
+                        for (const sub of items) {
+                            allMatches.push({ sub, customer: cust });
                         }
-                        break;
+                    } catch (subErr) {
+                        console.warn(`[AsaasSync] Erro ao listar subs do customer ${cust.id}.`);
+                    }
+                }
+
+                // Prioriza ACTIVE > OVERDUE > qualquer outra
+                const priorityOf = (s) => s === 'ACTIVE' ? 3 : s === 'OVERDUE' ? 2 : 1;
+                allMatches.sort((a, b) => priorityOf(b.sub.status) - priorityOf(a.sub.status));
+                const best = allMatches[0];
+
+                if (best) {
+                    asaasSubscription = best.sub;
+                    customerId = best.customer.id;
+                    foundAsaasCustomer = best.customer;
+                    console.log(`[AsaasSync] Sub por email: customerId=${best.customer.id} status=${best.sub.status}`);
+
+                    // Auto-recuperacao: corrige externalReference se estiver errado/legado
+                    const currentExternalRef = best.customer.externalReference || '';
+                    if (currentExternalRef !== uid) {
+                        try {
+                            await axios.put(
+                                `${ASAAS_URL}/customers/${best.customer.id}`,
+                                { externalReference: uid },
+                                { headers: asaasHeaders }
+                            );
+                            console.log(`[AsaasSync] externalReference corrigido: "${currentExternalRef}" -> "${uid}"`);
+                        } catch (refErr) {
+                            console.warn(`[AsaasSync] Falha ao corrigir externalReference do customer ${best.customer.id}:`, refErr.message);
+                        }
                     }
                 }
             } catch (err) {
@@ -1329,7 +1354,25 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
         }
 
         if (!asaasSubscription) {
-            console.log(`[AsaasSync] uid=${uid} — nenhuma assinatura encontrada no Asaas.`);
+            console.log(`[AsaasSync] uid=${uid} — nenhuma assinatura encontrada no Asaas. customerEncontrado=${Boolean(foundAsaasCustomer)}`);
+
+            // Se ao menos um customer Asaas foi achado pelo e-mail, salva o customerId
+            // no Firestore. Assim o proximo login encaminha pra LegacyAsaasCheckout em
+            // vez de jogar pro Stripe (isLegacyAsaasManagedUser passa a retornar true).
+            if (foundAsaasCustomer?.id) {
+                try {
+                    await db.collection('users').doc(uid).set({
+                        subscription: {
+                            provider: 'asaas',
+                            asaasCustomerId: foundAsaasCustomer.id,
+                        },
+                        updatedAt: new Date().toISOString(),
+                    }, { merge: true });
+                } catch (saveErr) {
+                    console.warn(`[AsaasSync] Falha ao salvar asaasCustomerId:`, saveErr.message);
+                }
+            }
+
             // Nao sobrescreve um plano 'pro' ja existente — pode ser falha temporaria
             // do Asaas, IDs nao salvos, ou e-mail divergente. Preserva o estado atual
             // e deixa o frontend decidir pelo plano salvo no Firestore.
@@ -1340,6 +1383,8 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
                 synced: false,
                 status: currentStatus,
                 plan: currentPlan,
+                hasAsaasCustomer: Boolean(foundAsaasCustomer?.id),
+                asaasCustomerId: foundAsaasCustomer?.id || null,
                 message: 'Nenhuma assinatura encontrada no Asaas; plano atual preservado.',
             });
         }
@@ -1389,6 +1434,8 @@ app.post('/api/asaas/sync-subscription', async (req, res) => {
             plan: internalPlan,
             nextBillingDate: asaasSubscription.nextDueDate || null,
             subscriptionId: asaasSubscription.id,
+            hasAsaasCustomer: true,
+            asaasCustomerId: customerId || null,
         });
 
     } catch (error) {
